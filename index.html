@@ -1,0 +1,722 @@
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  body {
+    background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
+    font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+  @keyframes gradientBG {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  #game-container {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    height: 100%;
+    max-height: 750px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+  }
+  header {
+    text-align: center;
+    margin-top: 5px;
+    z-index: 10;
+    flex-shrink: 0;
+  }
+  h1 {
+    font-size: 22px;
+    text-shadow: 0 3px 6px rgba(0,0,0,0.5);
+    color: #ffe600;
+    letter-spacing: 2px;
+  }
+  .turn-indicator {
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(5px);
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 15px;
+    font-weight: bold;
+    margin-top: 4px;
+    border: 2px solid #fff;
+    display: inline-block;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  }
+  canvas {
+    width: 100%;
+    height: 380px;
+    touch-action: none;
+    cursor: pointer;
+    display: block;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 16px;
+  }
+  .controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 5px;
+    z-index: 10;
+    width: 100%;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .btn {
+    background: linear-gradient(180deg, #ff9900, #cc6600);
+    border: 2px solid #fff;
+    color: white;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: bold;
+    border-radius: 25px;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    transition: all 0.1s;
+  }
+  .btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+  .modal {
+    display: flex;
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(8px);
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  .modal.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .modal-content {
+    background: rgba(30, 30, 40, 0.95);
+    border: 3px solid #ffcc00;
+    border-radius: 15px;
+    padding: 20px;
+    text-align: center;
+    max-width: 85%;
+    box-shadow: 0 0 20px rgba(255,204,0,0.5);
+  }
+  .modal h2 {
+    color: #ff3333;
+    font-size: 24px;
+    margin-bottom: 10px;
+  }
+  .modal p {
+    font-size: 15px;
+    margin-bottom: 20px;
+  }
+  .setting-group {
+    margin: 15px 0;
+    text-align: left;
+  }
+  .setting-group label {
+    display: block;
+    font-size: 14px;
+    color: #ffcc00;
+    margin-bottom: 5px;
+  }
+  .setting-group select {
+    width: 100%;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 14px;
+    border: 1px solid #ffcc00;
+    background: #222;
+    color: white;
+  }
+</style>
+
+<div id="game-container">
+  <header>
+    <h1>黒ひげ危機一発</h1>
+    <div id="turn-indicator" class="turn-indicator">プレイヤー 1 の番です</div>
+  </header>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <div class="controls">
+    <button class="btn" id="rotate-left">◀ 左回転</button>
+    <button class="btn" id="rotate-right">右回転 ▶</button>
+    <button class="btn" id="restart-btn">最初から</button>
+    <button class="btn" id="settings-btn">設定</button>
+  </div>
+
+  <!-- スタート/結果モーダル -->
+  <div id="game-modal" class="modal">
+    <div class="modal-content">
+      <h2 id="modal-title">ゲームオーバー！</h2>
+      <p id="modal-desc">黒ひげが飛び出しました！</p>
+      <button class="btn" id="modal-action-btn">もう一度遊ぶ</button>
+    </div>
+  </div>
+
+  <!-- 設定モーダル -->
+  <div id="settings-modal" class="modal">
+    <div class="modal-content">
+      <h2 style="color: #ffcc00;">ゲーム設定</h2>
+      <div class="setting-group">
+        <label for="player-count">プレイ人数:</label>
+        <select id="player-count">
+          <option value="1">1 人</option>
+          <option value="2" selected>2 人</option>
+          <option value="3">3 人</option>
+          <option value="4">4 人</option>
+        </select>
+      </div>
+      <div class="setting-group">
+        <label for="slot-count">穴の数 (難易度):</label>
+        <select id="slot-count">
+          <option value="12" selected>12 穴 (易しい)</option>
+          <option value="16">16 穴 (標準)</option>
+          <option value="24">24 穴 (難しい)</option>
+        </select>
+      </div>
+      <button class="btn" id="close-settings-btn">設定を保存してスタート</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  class SoundEffects {
+    constructor() { this.ctx = null; }
+    init() {
+      if (!this.ctx) {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+    playInsert() {
+      this.init(); if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+      osc.connect(gain); gain.connect(this.ctx.destination);
+      osc.start(); osc.stop(this.ctx.currentTime + 0.08);
+    }
+    playSafe() {
+      this.init(); if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, this.ctx.currentTime);
+      osc.frequency.setValueAtTime(659.25, this.ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+      osc.connect(gain); gain.connect(this.ctx.destination);
+      osc.start(); osc.stop(this.ctx.currentTime + 0.25);
+    }
+    playPop() {
+      this.init(); if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.1);
+      osc.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.6, this.ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+      osc.connect(gain); gain.connect(this.ctx.destination);
+      osc.start(); osc.stop(this.ctx.currentTime + 0.4);
+    }
+  }
+
+  const sounds = new SoundEffects();
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  let playerCount = 2;
+  let totalSlots = 12;
+  let currentPlayer = 0;
+  let triggerIndex = -1;
+  let slots = [];
+  let barrelAngle = 0;
+  let isDragging = false;
+  let lastMouseX = 0;
+  let gameOver = false;
+
+  let pirateState = 'NORMAL';
+  let pirateY = 0;
+  let pirateVy = 0;
+  let pirateRotation = 0;
+  let shakeTimer = 0;
+  let particles = [];
+
+  const PLAYER_COLORS = [
+    { name: '赤', main: '#ff4444', dark: '#cc0000' },
+    { name: '青', main: '#4488ff', dark: '#0044cc' },
+    { name: '黄', main: '#ffcc00', dark: '#cc9900' },
+    { name: '緑', main: '#44cc44', dark: '#008800' }
+  ];
+
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width > 0 ? rect.width : 400;
+    canvas.height = rect.height > 0 ? rect.height : 380;
+  }
+
+  function initGame() {
+    resizeCanvas();
+    slots = [];
+    barrelAngle = 0;
+    currentPlayer = 0;
+    gameOver = false;
+    pirateState = 'NORMAL';
+    pirateY = 0;
+    pirateVy = 0;
+    pirateRotation = 0;
+    particles = [];
+
+    triggerIndex = Math.floor(Math.random() * totalSlots);
+
+    for (let i = 0; i < totalSlots; i++) {
+      const angle = (i / (totalSlots / 2)) * Math.PI;
+      const heightLevel = i % 2 === 0 ? -25 : 25;
+      slots.push({
+        id: i,
+        angle: angle,
+        heightLevel: heightLevel,
+        inserted: false,
+        insertedByPlayer: -1
+      });
+    }
+
+    updateTurnUI();
+  }
+
+  function updateTurnUI() {
+    const turnEl = document.getElementById('turn-indicator');
+    const color = PLAYER_COLORS[currentPlayer];
+    turnEl.textContent = `プレイヤー ${currentPlayer + 1} (${color.name}) の番です`;
+    turnEl.style.backgroundColor = color.main;
+    turnEl.style.color = currentPlayer === 2 ? '#000' : '#fff';
+  }
+
+  function nextTurn() {
+    currentPlayer = (currentPlayer + 1) % playerCount;
+    updateTurnUI();
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    isDragging = true;
+    lastMouseX = e.clientX;
+  });
+
+  window.addEventListener('pointermove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - lastMouseX;
+    barrelAngle += dx * 0.01;
+    lastMouseX = e.clientX;
+  });
+
+  window.addEventListener('pointerup', () => { isDragging = false; });
+
+  document.getElementById('rotate-left').addEventListener('click', () => { barrelAngle -= 0.5; });
+  document.getElementById('rotate-right').addEventListener('click', () => { barrelAngle += 0.5; });
+
+  canvas.addEventListener('click', (e) => {
+    if (gameOver || pirateState !== 'NORMAL') return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    const barrelX = canvas.width / 2;
+    const barrelY = canvas.height * 0.62;
+    const barrelR = Math.min(canvas.width, canvas.height) * 0.28;
+
+    for (let slot of slots) {
+      if (slot.inserted) continue;
+
+      let normAngle = (slot.angle + barrelAngle) % (Math.PI * 2);
+      if (normAngle < 0) normAngle += Math.PI * 2;
+
+      const z = Math.cos(normAngle);
+      if (z <= 0.1) continue;
+
+      const sx = barrelX + Math.sin(normAngle) * barrelR * 0.92;
+      const sy = barrelY + slot.heightLevel;
+
+      const dist = Math.hypot(mx - sx, my - sy);
+      if (dist < 22) {
+        slot.inserted = true;
+        slot.insertedByPlayer = currentPlayer;
+        sounds.playInsert();
+
+        if (slot.id === triggerIndex) {
+          pirateState = 'SHAKE';
+          shakeTimer = 35;
+        } else {
+          sounds.playSafe();
+          nextTurn();
+        }
+        break;
+      }
+    }
+  });
+
+  function triggerLaunch() {
+    pirateState = 'LAUNCHED';
+    sounds.playPop();
+
+    pirateVy = -16.5;
+    pirateY = 0;
+    pirateRotation = 0;
+
+    const barrelX = canvas.width / 2;
+    const barrelY = canvas.height * 0.62;
+    for (let i = 0; i < 90; i++) {
+      particles.push({
+        x: barrelX,
+        y: barrelY - 120,
+        vx: (Math.random() - 0.5) * 16,
+        vy: (Math.random() - 0.8) * 16,
+        size: Math.random() * 8 + 4,
+        color: `hsl(${Math.random() * 360}, 90%, 60%)`,
+        life: 1.0
+      });
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const barrelX = canvas.width / 2;
+    const barrelY = canvas.height * 0.62;
+    const barrelR = Math.min(canvas.width, canvas.height) * 0.28;
+
+    let currentX = barrelX;
+    let currentY = barrelY;
+    if (pirateState === 'SHAKE') {
+      shakeTimer--;
+      currentX += (Math.random() - 0.5) * 10;
+      currentY += (Math.random() - 0.5) * 10;
+      if (shakeTimer <= 0) {
+        triggerLaunch();
+      }
+    }
+
+    drawSwordRack();
+
+    // 樽の影
+    ctx.beginPath();
+    ctx.ellipse(currentX, currentY + barrelR * 1.05, barrelR * 0.85, barrelR * 0.2, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fill();
+
+    // 1. 黒ひげ（顔全体をしっかりひょっこり出す）
+    if (pirateState === 'LAUNCHED') {
+      pirateVy += 0.12;
+      if (pirateVy > 0) pirateVy += 0.02;
+      pirateY += pirateVy;
+      pirateRotation += 0.08;
+
+      const px = currentX;
+      const py = currentY - barrelR * 1.25 + pirateY;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(px, py, 42, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 230, 0, 0.25)';
+      ctx.shadowColor = '#ffe600';
+      ctx.shadowBlur = 20;
+      ctx.fill();
+      ctx.restore();
+
+      drawCutePirate(px, py, pirateRotation, true);
+
+      if (pirateY > 150 && !gameOver) {
+        gameOver = true;
+        setTimeout(showGameOverModal, 400);
+      }
+    } else {
+      // 樽の上から顔全体が見える位置に設定
+      drawCutePirate(currentX, currentY - barrelR * 1.15, 0, false);
+    }
+
+    // 2. 樽の描画
+    drawBarrel(currentX, currentY, barrelR);
+
+    // 3. 穴と刀の描画
+    drawSlotsAndSwords(currentX, currentY, barrelR);
+
+    // 4. パーティクル
+    drawParticles();
+
+    requestAnimationFrame(draw);
+  }
+
+  function drawCutePirate(x, y, rotation, isSurprised) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+
+    // 顔
+    ctx.beginPath();
+    ctx.arc(0, 0, 26, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffdbac';
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#5c3a21';
+    ctx.stroke();
+
+    // ほっぺ
+    ctx.beginPath();
+    ctx.arc(-12, 5, 5, 0, Math.PI * 2);
+    ctx.arc(12, 5, 5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 120, 150, 0.6)';
+    ctx.fill();
+
+    // 帽子
+    ctx.beginPath();
+    ctx.moveTo(-32, -8);
+    ctx.quadraticCurveTo(0, -45, 32, -8);
+    ctx.quadraticCurveTo(0, -15, -32, -8);
+    ctx.fillStyle = '#e60033';
+    ctx.fill();
+    ctx.strokeStyle = '#80001a';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffe600';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('★', 0, -20);
+
+    // 目
+    if (isSurprised) {
+      ctx.beginPath();
+      ctx.arc(-9, -3, 5.5, 0, Math.PI * 2);
+      ctx.arc(9, -3, 5.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+      ctx.strokeStyle = '#333';
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(-9, -3, 2.5, 0, Math.PI * 2);
+      ctx.arc(9, -3, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#000';
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.arc(-9, -3, 4.5, 0, Math.PI * 2);
+      ctx.arc(9, -3, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#222';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(-7, -5, 1.6, 0, Math.PI * 2);
+      ctx.arc(11, -5, 1.6, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+    }
+
+    // ひげ
+    ctx.beginPath();
+    ctx.moveTo(-14, 9);
+    ctx.quadraticCurveTo(-7, 14, 0, 9);
+    ctx.quadraticCurveTo(7, 14, 14, 9);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#3d2314';
+    ctx.stroke();
+
+    // 口
+    ctx.beginPath();
+    ctx.arc(0, 11, 4.5, 0, Math.PI);
+    ctx.fillStyle = '#cc3333';
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawBarrel(x, y, r) {
+    ctx.save();
+    // 樽本体
+    ctx.beginPath();
+    ctx.ellipse(x, y, r * 0.85, r, 0, 0, Math.PI * 2);
+    const grad = ctx.createLinearGradient(x - r, y, x + r, y);
+    grad.addColorStop(0, '#4a2511');
+    grad.addColorStop(0.3, '#8b4513');
+    grad.addColorStop(0.7, '#a0522d');
+    grad.addColorStop(1, '#361b0d');
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#241107';
+    ctx.stroke();
+
+    // リング
+    const ringYOffsets = [-r * 0.5, -r * 0.05, r * 0.45, r * 0.8];
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 4;
+    ringYOffsets.forEach(offset => {
+      ctx.beginPath();
+      const scale = Math.cos((offset / r) * 0.8);
+      ctx.ellipse(x, y + offset, r * 0.85 * scale, 7, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+
+    ctx.restore();
+  }
+
+  function drawSlotsAndSwords(bx, by, r) {
+    const sortedSlots = [...slots].map(s => {
+      let normAngle = (s.angle + barrelAngle) % (Math.PI * 2);
+      if (normAngle < 0) normAngle += Math.PI * 2;
+      return {
+        ...s,
+        normAngle,
+        z: Math.cos(normAngle),
+        x: bx + Math.sin(normAngle) * r * 0.92,
+        y: by + s.heightLevel
+      };
+    }).sort((a, b) => a.z - b.z);
+
+    sortedSlots.forEach(s => {
+      ctx.save();
+
+      if (s.inserted) {
+        const playerColor = PLAYER_COLORS[s.insertedByPlayer];
+        ctx.translate(s.x, s.y);
+        ctx.globalAlpha = s.z < 0 ? 0.4 : 1.0;
+
+        ctx.rotate(s.normAngle > Math.PI ? -0.3 : 0.3);
+        ctx.fillStyle = playerColor.main;
+        ctx.fillRect(0, -5, s.z > 0 ? 40 : -40, 10);
+
+        ctx.fillStyle = '#d4af37';
+        ctx.beginPath();
+        ctx.arc(s.z > 0 ? 40 : -40, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+        return;
+      }
+
+      if (s.z > 0.05) {
+        ctx.beginPath();
+        ctx.ellipse(s.x, s.y, 6, 10, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#111';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#ffd700';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 12, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.15)';
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.ellipse(s.x, s.y, 4, 7, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(20,20,20,0.5)';
+        ctx.fill();
+      }
+
+      ctx.restore();
+    });
+  }
+
+  function drawSwordRack() {
+    const totalInserted = slots.filter(s => s.inserted).length;
+    const remainingSwords = totalSlots - totalInserted;
+
+    ctx.save();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`残りの刀: ${remainingSwords} 本 / 全 ${totalSlots} 穴`, canvas.width / 2, canvas.height - 12);
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.3;
+      p.life -= 0.015;
+
+      if (p.life <= 0) {
+        particles.splice(i, 1);
+        continue;
+      }
+
+      ctx.save();
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+      ctx.restore();
+    }
+  }
+
+  function showGameOverModal() {
+    const modal = document.getElementById('game-modal');
+    const title = document.getElementById('modal-title');
+    const desc = document.getElementById('modal-desc');
+
+    const loserColor = PLAYER_COLORS[currentPlayer].name;
+    title.textContent = `ポーン！負け！`;
+    desc.textContent = `プレイヤー ${currentPlayer + 1} (${loserColor}) が黒ひげを飛ばしてしまいました！`;
+
+    modal.classList.add('active');
+  }
+
+  document.getElementById('modal-action-btn').addEventListener('click', () => {
+    document.getElementById('game-modal').classList.remove('active');
+    initGame();
+  });
+
+  document.getElementById('restart-btn').addEventListener('click', () => {
+    initGame();
+  });
+
+  const settingsModal = document.getElementById('settings-modal');
+  document.getElementById('settings-btn').addEventListener('click', () => {
+    settingsModal.classList.add('active');
+  });
+
+  document.getElementById('close-settings-btn').addEventListener('click', () => {
+    playerCount = parseInt(document.getElementById('player-count').value);
+    totalSlots = parseInt(document.getElementById('slot-count').value);
+    settingsModal.classList.remove('active');
+    initGame();
+  });
+
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+  });
+
+  initGame();
+  draw();
+})();
+</script>
