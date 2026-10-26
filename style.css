@@ -1,0 +1,20 @@
+body{
+//background-image : url(dog3.jpg);
+}
+
+h1{
+font-size : 350%;
+color : #ffffff;
+background-color : #003399;
+}
+
+h2{
+font-size : 170%;
+color : #cc0033;
+}
+
+ul{
+font-size : 120%;
+line-height : 2;
+background-color : #ccff66;
+}

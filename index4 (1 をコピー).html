@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>関数グラフ表示</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .formula {
+            text-align: center;
+            color: #555;
+            margin-bottom: 25px;
+            font-size: 16px;
+            font-style: italic;
+        }
+        
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            background: white;
+            cursor: crosshair;
+        }
+        
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        label {
+            font-weight: bold;
+            color: #555;
+            font-size: 14px;
+        }
+        
+        input[type="range"] {
+            width: 150px;
+        }
+        
+        .value-display {
+            color: #667eea;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>関数グラフビューア</h1>
+        <div class="formula">
+            f(x) = (cos(ax)cos(x) + √cos(x) + √|x| - 0.9) · (4 - x²)^0.01
+        </div>
+        <canvas id="graphCanvas" width="800" height="500"></canvas>
+        <div class="controls">
+            <div class="control-group">
+                <label>パラメータ a: <span class="value-display" id="aValue">5.0</span></label>
+                <input type="range" id="aSlider" min="0" max="200" step="0.1" value="5">
+            </div>
+            <div class="control-group">
+                <label>x範囲: <span class="value-display" id="rangeValue">±2.0</span></label>
+                <input type="range" id="rangeSlider" min="1" max="10" step="0.1" value="2">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('graphCanvas');
+        const ctx = canvas.getContext('2d');
+        const aSlider = document.getElementById('aSlider');
+        const rangeSlider = document.getElementById('rangeSlider');
+        const aValue = document.getElementById('aValue');
+        const rangeValue = document.getElementById('rangeValue');
+        
+        let a = 5;
+        let xRange = 2;
+        
+        function f(x, a) {
+            // 定義域チェック: -2 < x < 2 and cos(x) >= 0
+            if (Math.abs(x) >= 2) return null;
+            
+            const cosX = Math.cos(x);
+            if (cosX < 0) return null;
+            
+            const term1 = Math.cos(a * x) * cosX;
+            const term2 = Math.sqrt(cosX);
+            const term3 = Math.sqrt(Math.abs(x));
+            const term4 = -0.9;
+            
+            const bracket = term1 + term2 + term3 + term4;
+            const power = Math.pow(4 - x * x, 0.01);
+            
+            return bracket * power;
+        }
+        
+        function drawGraph() {
+            // キャンバスをクリア
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // グラフの範囲を計算
+            const padding = 50;
+            const graphWidth = canvas.width - 2 * padding;
+            const graphHeight = canvas.height - 2 * padding;
+            
+            // y範囲を計算
+            let yMin = Infinity, yMax = -Infinity;
+            const samples = [];
+            for (let px = 0; px <= graphWidth; px++) {
+                const x = (px / graphWidth) * (2 * xRange) - xRange;
+                const y = f(x, a);
+                if (y !== null && !isNaN(y)) {
+                    yMin = Math.min(yMin, y);
+                    yMax = Math.max(yMax, y);
+                    samples.push({x, y});
+                }
+            }
+            
+            const yMargin = (yMax - yMin) * 0.1;
+            yMin -= yMargin;
+            yMax += yMargin;
+            
+            // 座標変換関数
+            function toCanvasX(x) {
+                return padding + ((x + xRange) / (2 * xRange)) * graphWidth;
+            }
+            
+            function toCanvasY(y) {
+                return padding + graphHeight - ((y - yMin) / (yMax - yMin)) * graphHeight;
+            }
+            
+            // 軸を描画
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 1;
+            
+            // y軸
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(0), padding);
+            ctx.lineTo(toCanvasX(0), padding + graphHeight);
+            ctx.stroke();
+            
+            // x軸
+            ctx.beginPath();
+            ctx.moveTo(padding, toCanvasY(0));
+            ctx.lineTo(padding + graphWidth, toCanvasY(0));
+            ctx.stroke();
+            
+            // グリッド
+            ctx.strokeStyle = '#f0f0f0';
+            ctx.lineWidth = 0.5;
+            for (let i = -10; i <= 10; i++) {
+                const x = i * xRange / 5;
+                if (Math.abs(x) < xRange) {
+                    ctx.beginPath();
+                    ctx.moveTo(toCanvasX(x), padding);
+                    ctx.lineTo(toCanvasX(x), padding + graphHeight);
+                    ctx.stroke();
+                }
+            }
+            
+            // グラフを描画
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            
+            let started = false;
+            for (let i = 0; i < samples.length; i++) {
+                const {x, y} = samples[i];
+                const canvasX = toCanvasX(x);
+                const canvasY = toCanvasY(y);
+                
+                if (!started) {
+                    ctx.moveTo(canvasX, canvasY);
+                    started = true;
+                } else {
+                    ctx.lineTo(canvasX, canvasY);
+                }
+            }
+            ctx.stroke();
+            
+            // ラベル
+            ctx.fillStyle = '#333';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('0', toCanvasX(0), padding + graphHeight + 20);
+            ctx.fillText(xRange.toFixed(1), toCanvasX(xRange), padding + graphHeight + 20);
+            ctx.fillText((-xRange).toFixed(1), toCanvasX(-xRange), padding + graphHeight + 20);
+            
+            ctx.textAlign = 'right';
+            ctx.fillText(yMax.toFixed(2), padding - 10, toCanvasY(yMax) + 5);
+            ctx.fillText(yMin.toFixed(2), padding - 10, toCanvasY(yMin) + 5);
+        }
+        
+        aSlider.addEventListener('input', (e) => {
+            a = parseFloat(e.target.value);
+            aValue.textContent = a.toFixed(1);
+            drawGraph();
+        });
+        
+        rangeSlider.addEventListener('input', (e) => {
+            xRange = parseFloat(e.target.value);
+            rangeValue.textContent = `±${xRange.toFixed(1)}`;
+            drawGraph();
+        });
+        
+        // 初期描画
+        drawGraph();
+    </script>
+</body>
+</html>
+
+
+
+
+
+<html>
+	<head>
+		<title>ルルドの部屋</title>
+	</head>
+	<body>
+		<h1>ある日のルルド</h1>
+		<img src="DSCF0033.JPG" width="100">
+<h2>つぎの日のルルド</h2>
+<a href="page1.html">別のページ</a>
+<table border="1">
+<tr>
+<td>
+表題１
+</td>
+<td>
+表題２
+</td>
+</tr>
+<tr>
+<td>
+始めの日
+</td>
+<td>
+<img src="dog5.png" width="100">
+</td>
+<tr>
+<tr>
+<td>
+始めの日
+</td>
+<td>
+<img src="DSCF0039.JPG" width="100">
+</td>
+<tr>
+</table>
+
+
+</body>
+</html>

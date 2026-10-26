@@ -1,0 +1,47 @@
+body{
+background-image : url(dog3.jpg);
+background-repeat : repeat-x; 
+}
+
+h1{
+font-size : 350%;
+
+}
+h1{
+  	font-style : italic;
+  	font-size : 350%;
+	color : #999900;
+	border-bottom-width:4px;
+	border-bottom-style:dotted;
+	}
+
+h2{
+	border-bottom-width : 4px;
+	border-bottom-style : solid;
+	border-left-width:10px;
+	border-left-style:solid;
+	border-left-color:#cc66cc;
+	border-bottom-color : #cc66cc;
+	}
+
+ul{
+  font-weight : bold;
+  line-height : 2;
+  background-color : #ccffff;
+	}
+
+.menu{
+	font-size:130%;
+	background-color:#ffffff;
+	}
+
+.menu:hover{
+	background-color:#333366;
+	}
+
+.bottom:hover{
+	position:relative;
+	left:2px;
+	top:2px;
+	}
+
